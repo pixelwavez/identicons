@@ -1,11 +1,7 @@
-from collections import namedtuple
 from hashlib import sha1
 from typing import List, Tuple
 from PIL import Image, ImageDraw
 from argparse import ArgumentParser
-
-Position = namedtuple('Position', ['x', 'y'])
-Color = namedtuple('Color', ['r', 'g', 'b'])
 
 
 # (r, g, b) from a byte
@@ -14,6 +10,14 @@ def get_color(hexdigest: str) -> Tuple[int, int, int]:
     g = int(hexdigest[8:10], 16)
     b = int(hexdigest[10:12], 16)
     return (r, g, b)
+
+
+# for multicolor use
+def get_pixel_color(hexdigest: str, x: int, y: int) -> Tuple[int, int, int]:
+    r = int(hexdigest[(x * 2) % len(hexdigest)], 16) * 16
+    g = int(hexdigest[(y * 2 + 1) % len(hexdigest)], 16) * 16
+    b = int(hexdigest[(x + y) % len(hexdigest)], 16) * 16
+    return (r % 256, g % 256, b % 256)
 
 
 # generate a 5x5 array of bits — only uses 5 hex digits
@@ -53,7 +57,7 @@ def hash_user_id(user_id: str) -> str:
     return sha1(user_id.encode()).hexdigest()
 
 
-def render(user_id: str, pattern_generator_func) -> None:
+def render(user_id: str, pattern_generator_func, multicolor: bool = False) -> None:
     pixel_size, image_size = 50, 250
 
     hexdigest = hash_user_id(user_id)
@@ -68,7 +72,13 @@ def render(user_id: str, pattern_generator_func) -> None:
             if pixel:
                 tl_x, tl_y = p * pixel_size, r * pixel_size
                 br_x, br_y = tl_x + pixel_size, tl_y + pixel_size
-                draw.rectangle(xy=[tl_x, tl_y, br_x, br_y], fill=color)
+                if multicolor:
+                    draw.rectangle(
+                        xy=[tl_x, tl_y, br_x, br_y],
+                        fill=get_pixel_color(hexdigest=hexdigest, x=p, y=r),
+                    )
+                else:
+                    draw.rectangle(xy=[tl_x, tl_y, br_x, br_y], fill=color)
 
     img.show()
 
@@ -79,7 +89,9 @@ PATTERN_GENERATOR_MAP = {
 }
 
 
-def github_identicon(user_id: str, pattern_generator: str = "simple") -> None:
+def github_identicon(
+    user_id: str, multicolor: bool = False, pattern_generator: str = "simple"
+) -> None:
     if not user_id:
         print("UserID not provided")
         return
@@ -88,7 +100,11 @@ def github_identicon(user_id: str, pattern_generator: str = "simple") -> None:
         print(f"Pattern {pattern_generator} not found")
         return
 
-    render(user_id, PATTERN_GENERATOR_MAP[pattern_generator])
+    render(
+        user_id=user_id,
+        pattern_generator_func=PATTERN_GENERATOR_MAP[pattern_generator],
+        multicolor=multicolor,
+    )
 
 
 if __name__ == "__main__":
@@ -97,6 +113,9 @@ if __name__ == "__main__":
         "-u", "--user", "--id", "--userid", required=True, type=str, help="User ID"
     )
     parser.add_argument("-p", "--pattern", type=str, help="Specify pattern generator")
+    parser.add_argument(
+        "-m", "--multicolor", action="store_true", help="Specify pattern generator"
+    )
 
     args = parser.parse_args()
 
@@ -106,4 +125,10 @@ if __name__ == "__main__":
     if args.pattern:
         pattern_generator = args.pattern
 
-    github_identicon(user_id=user_id, pattern_generator=pattern_generator)
+    multicolor = False
+    if args.multicolor:
+        multicolor = True
+
+    github_identicon(
+        user_id=user_id, pattern_generator=pattern_generator, multicolor=multicolor
+    )
