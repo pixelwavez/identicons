@@ -9,6 +9,7 @@ Private avatars
 - Browser Extension: https://addons.mozilla.org/en-US/firefox/addon/identfavicon-quantum/
 - Forms of identicons: https://github.com/drhus/awesome-identicons?tab=readme-ov-file
 - Cinemetrics https://blog.docuverse.com/tag/identicon/
+- Jazzicon https://www.npmjs.com/package/jazzicon
 
 ## To do
 - Microcontroller display
