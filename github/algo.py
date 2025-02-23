@@ -1,5 +1,12 @@
-import hashlib
-from typing import List
+from hashlib import sha1
+from typing import List, Tuple
+
+# (r, g, b) from a byte
+def get_color(hexdigest: str) -> Tuple[int, int, int]:
+  r = int(hexdigest[6:8], 16)
+  g = int(hexdigest[8:10], 16)
+  b = int(hexdigest[10:12], 16)
+  return (r, g, b)
 
 # generate a 5x5 array of bits
 def generate_bit_array(hexdigest: str) -> List[List[int]]:
@@ -15,7 +22,7 @@ def generate_bit_array(hexdigest: str) -> List[List[int]]:
   return bit_array
 
 def hash_user_id(user_id: str) -> str:
-  return hashlib.sha1(user_id.encode()).hexdigest()
+  return sha1(user_id.encode()).hexdigest()
 
 def main():
   user_id = input("UserID: ")
