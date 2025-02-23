@@ -1,7 +1,11 @@
+from colorsys import hsv_to_rgb
 from hashlib import sha1
+from random import uniform
 from typing import List, Tuple
 from PIL import Image, ImageDraw
 from argparse import ArgumentParser
+
+## COLOR GENERATORS
 
 
 # (r, g, b) from a byte
@@ -18,6 +22,24 @@ def get_pixel_color(hexdigest: str, x: int, y: int) -> Tuple[int, int, int]:
     g = int(hexdigest[(y * 2 + 1) % len(hexdigest)], 16) * 16
     b = int(hexdigest[(x + y) % len(hexdigest)], 16) * 16
     return (r % 256, g % 256, b % 256)
+
+
+# base color with hue mutations
+def get_hue_mutation_color(hexdigest: str, x: int, y: int) -> Tuple[int, int, int]:
+    base_hue = int(hexdigest[:2], 16) / 255.0
+
+    # vary the hue slightly within a range (-0.1 to +0.1)
+    hue_variation = base_hue + uniform(-0.1, 0.1)
+    hue_variation = max(0.0, min(1.0, hue_variation))
+
+    saturation = 0.8
+    value = 0.9
+
+    r, g, b = hsv_to_rgb(hue_variation, saturation, value)
+    return (int(r * 255), int(g * 255), int(b * 255))
+
+
+## IDENTICON GENERATORS
 
 
 # generate a 5x5 array of bits — only uses 5 hex digits
@@ -57,14 +79,16 @@ def hash_user_id(user_id: str) -> str:
     return sha1(user_id.encode()).hexdigest()
 
 
-def render(user_id: str, pattern_generator_func, multicolor: bool = False) -> None:
+def render(
+    user_id: str, identicon_generator_func, multicolor: bool, color_generator_func
+) -> None:
     pixel_size, image_size = 50, 250
 
     hexdigest = hash_user_id(user_id)
-    bit_array = pattern_generator_func(hexdigest)
-    color = get_color(hexdigest)
+    bit_array = identicon_generator_func(hexdigest)
+    color = COLOR_PATTERN_GENERATOR_MAP["single"](hexdigest)
 
-    img = Image.new("RGB", (image_size, image_size), "white")
+    img = Image.new("RGB", (image_size, image_size), "black")
     draw = ImageDraw.Draw(img)
 
     for r, row in enumerate(bit_array):
@@ -75,7 +99,7 @@ def render(user_id: str, pattern_generator_func, multicolor: bool = False) -> No
                 if multicolor:
                     draw.rectangle(
                         xy=[tl_x, tl_y, br_x, br_y],
-                        fill=get_pixel_color(hexdigest=hexdigest, x=p, y=r),
+                        fill=color_generator_func(hexdigest=hexdigest, x=p, y=r),
                     )
                 else:
                     draw.rectangle(xy=[tl_x, tl_y, br_x, br_y], fill=color)
@@ -83,27 +107,36 @@ def render(user_id: str, pattern_generator_func, multicolor: bool = False) -> No
     img.show()
 
 
-PATTERN_GENERATOR_MAP = {
+IDENTICON_PATTERN_GENERATOR_MAP = {
     "simple": generate_pattern_simple,
     "4hex": generate_pattern_4hex_row,
 }
 
+COLOR_PATTERN_GENERATOR_MAP = {
+    "single": get_color,
+    "multicolor": get_pixel_color,
+    "hues":get_hue_mutation_color
+}
+
 
 def github_identicon(
-    user_id: str, multicolor: bool = False, pattern_generator: str = "simple"
+    user_id: str,
+    identicon_pattern_generator: str = "simple",
+    color_pattern_generator: str = "single",
 ) -> None:
-    if not user_id:
-        print("UserID not provided")
+    if identicon_pattern_generator not in IDENTICON_PATTERN_GENERATOR_MAP:
+        print(f"Identicon pattern '{identicon_pattern_generator}' not found")
         return
 
-    if pattern_generator not in PATTERN_GENERATOR_MAP:
-        print(f"Pattern {pattern_generator} not found")
+    if color_pattern_generator not in COLOR_PATTERN_GENERATOR_MAP:
+        print(f"Color pattern '{color_pattern_generator}' not found")
         return
 
     render(
-        user_id=user_id,
-        pattern_generator_func=PATTERN_GENERATOR_MAP[pattern_generator],
-        multicolor=multicolor,
+        user_id,
+        IDENTICON_PATTERN_GENERATOR_MAP[identicon_pattern_generator],
+        color_pattern_generator != "single",
+        COLOR_PATTERN_GENERATOR_MAP[color_pattern_generator],
     )
 
 
@@ -112,23 +145,24 @@ if __name__ == "__main__":
     parser.add_argument(
         "-u", "--user", "--id", "--userid", required=True, type=str, help="User ID"
     )
-    parser.add_argument("-p", "--pattern", type=str, help="Specify pattern generator")
     parser.add_argument(
-        "-m", "--multicolor", action="store_true", help="Specify pattern generator"
+        "-p", "--pattern", type=str, help="Specify identicon pattern generator"
+    )
+
+    parser.add_argument(
+        "-c", "--colorpattern", type=str, help="Specify color pattern generator"
     )
 
     args = parser.parse_args()
 
     user_id = args.user
 
-    pattern_generator = "simple"
+    identicon_pattern_generator = "simple"
     if args.pattern:
-        pattern_generator = args.pattern
+        identicon_pattern_generator = args.pattern
 
-    multicolor = False
-    if args.multicolor:
-        multicolor = True
+    color_pattern_generator = "single"
+    if args.colorpattern:
+        color_pattern_generator = args.colorpattern
 
-    github_identicon(
-        user_id=user_id, pattern_generator=pattern_generator, multicolor=multicolor
-    )
+    github_identicon(user_id, identicon_pattern_generator, color_pattern_generator)
