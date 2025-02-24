@@ -114,7 +114,7 @@ IDENTICON_PATTERN_GENERATOR_MAP = {
 
 COLOR_PATTERN_GENERATOR_MAP = {
     "single": get_color,
-    "multicolor": get_pixel_color,
+    "multi": get_pixel_color,
     "hues":get_hue_mutation_color
 }
 
